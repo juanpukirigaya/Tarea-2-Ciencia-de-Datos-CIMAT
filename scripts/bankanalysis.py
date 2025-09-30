@@ -1,5 +1,13 @@
-import clasificadores
+# Paqueterias
+import pandas as pd
+import numpy as np
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 
+# importar funciones de clasificadores
+import clasificadores as cla
 #---------------------------
 # Exploración de los datos
 #---------------------------
@@ -12,7 +20,7 @@ print(f"La base de datos esta conformada por {df.shape[1]} columnas y {df.shape[
 #Visualizacion de los tipos de datos
 print("\nVisualizacion de los datos\n",df.dtypes)
 # Ver si hay datos faltantes
-print(df.isna().sum())
+print("Numero de nan",df.isna().sum())
 # Las columnas de tipo objecto son de categorias
 # Ver el numero y categorias de cada columna
 print("\n---------Columnas categoricas------\n")
@@ -68,27 +76,27 @@ k = 5
 wei = None
 
 # Realizar pruebas
-y_lda=LDA(X_train, X_test, y_train, y_test)
-y_qda=QDA(X_train, X_test, y_train, y_test)
+y_lda=cla.LDA(X_train, X_test, y_train, y_test)
+y_qda=cla.QDA(X_train, X_test, y_train, y_test)
 # Al correrlo marca una advertencia esto puede ocurrir por colinealidad
-y_qda=QDA(X_train, X_test, y_train, y_test,0.1) # Caso regularizado
-y_nb=naiveBayes(X_train, X_test, y_train, y_test)
-y_knn=k_NN(X_train, X_test, y_train, y_test,k)
-y_lr=logistica(X_train, X_test, y_train, y_test, pesos=wei)
+y_qda=cla.QDA(X_train, X_test, y_train, y_test,0.1) # Caso regularizado
+y_nb=cla.naiveBayes(X_train, X_test, y_train, y_test)
+y_knn=cla.k_NN(X_train, X_test, y_train, y_test,k)
+y_lr=cla.logistica(X_train, X_test, y_train, y_test, pesos=wei)
 #Mas valores de k
 n=[1,3,5,7,11]
 for i in n:
-    y_knn=k_NN(X_train, X_test, y_train, y_test,i)
+    y_knn=cla.k_NN(X_train, X_test, y_train, y_test,i)
 #=====================================
 # Comparación de todos los modelos
 #====================================
 # Diccionario para guardar los resultados
 results = {
-    "Naive Bayes": obtener_metricas(y_test, y_nb),
-    "LDA": obtener_metricas(y_test, y_lda),
-    "QDA": obtener_metricas(y_test, y_qda),
-    f"k-NN (k={k})": obtener_metricas(y_test, y_knn),
-    f"Regresión Logística (pesos={wei})": obtener_metricas(y_test, y_lr)
+    "Naive Bayes": cla.obtener_metricas(y_test, y_nb),
+    "LDA": cla.obtener_metricas(y_test, y_lda),
+    "QDA": cla.obtener_metricas(y_test, y_qda),
+    f"k-NN (k={k})": cla.obtener_metricas(y_test, y_knn),
+    f"Regresión Logística (pesos={wei})": cla.obtener_metricas(y_test, y_lr)
 }
 
 # Convertir a DataFrame para visualizar
@@ -103,10 +111,10 @@ modelos = {
     "LDA": LinearDiscriminantAnalysis(),
     "QDA": QuadraticDiscriminantAnalysis(reg_param=0.2), # Regular en caso de colinealidad
     f"k-NN (k={k})": KNeighborsClassifier(n_neighbors=k),
-    f"Regresión Logística (pesos={wei})": LogisticRegression(class_weight=wei, max_iter=1000)
+    f"Regresión Logística (pesos={wei})": cla.LogisticRegression(class_weight=wei, max_iter=1000)
 }
 
 # Evaluación con accuracy
 X_np = np.array(X_cat, dtype=np.float64)
 y_np = np.array(y)
-df_cv_acc = validar_modelos(modelos, X_np, y_np)
+df_cv_acc = cla.validar_modelos(modelos, X_np, y_np)
