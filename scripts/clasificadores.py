@@ -59,7 +59,7 @@ def mostrar_metricas(y_true, y_pred):
 #=====================================
 #======  Naive Bayes =================
 #=====================================
-def naiveBayes(X_train, X_test, y_train, y_test):
+def naiveBayes(X_train, X_test, y_train, y_test,matriz=True,imprimir=True):
     """
     Función que realiza clasificación con el metodo de Naive Bayes y grafica
     la matriz de confusion y regresa la predicción
@@ -71,7 +71,7 @@ def naiveBayes(X_train, X_test, y_train, y_test):
     y_test : Variable de salida a validar
 
     """
-    print("\n--------  Naive Bayes --------\n")
+    
     # Entrenar
     nb = GaussianNB()
     nb.fit(X_train, y_train)
@@ -79,18 +79,22 @@ def naiveBayes(X_train, X_test, y_train, y_test):
     # Evaluar
     y_pred_nb = nb.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_nb)
-    print("Matriz de confusión (Naive Bayes):\n", cm)
-    #Metricas
-    mostrar_metricas(y_test, y_pred_nb)
-
-    # Graficar matriz de confusion
-    grafica_confusion(cm, 'Naive Bayes')
+    
+    if imprimir:
+        print("\n--------  Naive Bayes --------\n")
+        print("Matriz de confusión (Naive Bayes):\n", cm)
+        #Metricas
+        mostrar_metricas(y_test, y_pred_nb)
+    if matriz:
+        # Graficar matriz de confusion
+        grafica_confusion(cm, 'Naive Bayes')
+    
     return y_pred_nb
 
 #=====================================
 #=LDA (Linear Discriminant Analysis)=
 #=====================================
-def LDA(X_train, X_test, y_train, y_test):
+def LDA(X_train, X_test, y_train, y_test,matriz=True,imprimir=True):
     """
     Función que realiza clasificación con el metodo Linear Discriminant Analysis
     y grafica la matriz de confusion y regresa la predicción
@@ -102,24 +106,31 @@ def LDA(X_train, X_test, y_train, y_test):
     y_test : Variable de salida a validar
 
     """
-    print("\n--------  LDA (Linear Discriminant Analysis) --------\n")
+    
     # Entrenar
     lda = LinearDiscriminantAnalysis()
     lda.fit(X_train, y_train)
     # Evaluar
     y_pred_lda = lda.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_lda)
-    print("Matriz de confusión (LDA):\n", cm)
-    #Metricas
-    mostrar_metricas(y_test, y_pred_lda)
-    # Graficar matriz de confusion
-    grafica_confusion(cm, 'LDA')
+    
+    #imprimir metricas
+    if imprimir:
+        print("\n--------  LDA (Linear Discriminant Analysis) --------\n")
+        print("Matriz de confusión (LDA):\n", cm)
+        #Metricas
+        mostrar_metricas(y_test, y_pred_lda)
+    
+    if matriz:
+        # Graficar matriz de confusion
+        grafica_confusion(cm, 'LDA')
+    
     return y_pred_lda
 
 #=====================================
 # QDA (Quadratic Discriminant Analysis) =
 #=====================================
-def QDA(X_train, X_test, y_train, y_test,reg_param=0):
+def QDA(X_train, X_test, y_train, y_test,reg_param=0,matriz=True,imprimir=True):
     """
     Función que realiza clasificación con el metodo Quadratic Discriminant Analysis
     y grafica la matriz de confusion y regresa la predicción
@@ -131,24 +142,29 @@ def QDA(X_train, X_test, y_train, y_test,reg_param=0):
     y_test : Variable de salida a validar
     reg_param: valor para regularizar las matrices de covarianza de cada clase por defecto 0
     """
-    print("\n--------  QDA (Quadratic Discriminant Analysis) --------\n")
+    
     # Entrenar
     qda = QuadraticDiscriminantAnalysis(reg_param=reg_param)
     qda.fit(X_train, y_train)
     # Evaluar
     y_pred_qda = qda.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_qda)
-    print("Matriz de confusión (QDA):\n", cm)
-    #Metricas
-    mostrar_metricas(y_test, y_pred_qda)
-    # Graficar matriz de confusion
-    grafica_confusion(cm, 'QDA')
+    
+    #imprimir metricas
+    if imprimir:
+        print("\n--------  QDA (Quadratic Discriminant Analysis) --------\n")
+        print("Matriz de confusión (QDA):\n", cm)
+        mostrar_metricas(y_test, y_pred_qda)
+    #graficar matriz
+    if matriz:
+        grafica_confusion(cm, 'QDA')
+        
     return y_pred_qda
 
 #=====================================
 # k-NN (k-Nearest Neighbors) =
 #=====================================
-def k_NN(X_train, X_test, y_train, y_test,n_neighbors):
+def k_NN(X_train, X_test, y_train, y_test,n_neighbors,matriz=True,imprimir=True):
     """
     Función que realiza clasificación con el metodo k-Nearest Neighbors
     y grafica la matriz de confusion y regresa la predicción
@@ -161,24 +177,29 @@ def k_NN(X_train, X_test, y_train, y_test,n_neighbors):
     y_test : Variable de salida a validar
 
     """
-    print(f"\n--------  k-NN (k-Nearest Neighbors) con {n_neighbors} vecinos) --------\n")    # Entrenar
     knn = KNeighborsClassifier(n_neighbors)
     knn.fit(X_train, y_train)
 
     # Evaluar
     y_pred_knn = knn.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_knn)
-    print("Matriz de confusión (k-NN):\n", cm)
-    #Metricas
-    mostrar_metricas(y_test, y_pred_knn)
+    
+    if imprimir:
+        print(f"\n--------  k-NN (k-Nearest Neighbors) con {n_neighbors} vecinos) --------\n")    # Entrenar
+        print("Matriz de confusión (k-NN):\n", cm)
+        #Metricas
+        mostrar_metricas(y_test, y_pred_knn)
     # Graficar matriz de confusion
-    grafica_confusion(cm, 'k-NN',n_neighbors)
+    if matriz:
+        cm = confusion_matrix(y_test, y_pred_knn)
+        grafica_confusion(cm, 'k-NN',n_neighbors)
+        
     return y_pred_knn
 
 #=====================================
 # Regresión Logística =
 #=====================================
-def logistica(X_train, X_test, y_train, y_test, pesos=None):
+def logistica(X_train, X_test, y_train, y_test, pesos=None,matriz=True,imprimir=True):
     """
     Función que realiza clasificación con el método de Regresión Logística,
     grafica la matriz de confusión y regresa la predicción.
@@ -192,7 +213,6 @@ def logistica(X_train, X_test, y_train, y_test, pesos=None):
     y_train : Variable de salida a entrenar
     y_test : Variable de salida a validar
     """
-    print(f"\n--------  Regresión Logística (pesos={pesos}) --------\n")
     
     # Entrenar
     logreg = LogisticRegression(solver="liblinear",class_weight=pesos, max_iter=2000)
@@ -201,14 +221,17 @@ def logistica(X_train, X_test, y_train, y_test, pesos=None):
     # Evaluar
     y_pred_log = logreg.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_log)
-    print("Matriz de confusión (Logística):\n", cm)
+    
 
     # Métricas
-    mostrar_metricas(y_test, y_pred_log)
-
-    # Graficar matriz de confusión
-    grafica_confusion(cm, 'Regresión Logística', pesos=pesos)
-
+    if imprimir:
+        print(f"\n--------  Regresión Logística (pesos={pesos}) --------\n")
+        print("Matriz de confusión (Logística):\n", cm)
+        mostrar_metricas(y_test, y_pred_log)
+    if matriz:
+        # Graficar matriz de confusión
+        grafica_confusion(cm, 'Regresión Logística', pesos=pesos)
+    
     return y_pred_log
 
 #=====================================
