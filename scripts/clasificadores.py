@@ -22,21 +22,29 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 # ====== Funciones para clasificación =====
 
 # Para graficar la matriz de confusion
-def grafica_confusion(cm, metodo, n_neighbors=0):
+def grafica_confusion(cm, metodo, n_neighbors=None, pesos=None):
     plt.figure(figsize=(6, 4))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 
-    if n_neighbors == 0:
-        plt.title(f'Matriz de confusión - {metodo}')
+    if metodo.lower() == "k-nn":
+        if pesos is not None:
+            plt.title(f'Matriz de confusión - {metodo} (k={n_neighbors}, pesos={pesos})')
+        else:
+            plt.title(f'Matriz de confusión - {metodo} (k={n_neighbors})')
+    elif metodo.lower() == "regresión logística":
+        if pesos is not None:
+            plt.title(f'Matriz de confusión - {metodo} (pesos={pesos})')
+        else:
+            plt.title(f'Matriz de confusión - {metodo}')
     else:
-        plt.title(f'Matriz de confusión - {metodo} con {n_neighbors} vecinos')
+        plt.title(f'Matriz de confusión - {metodo}')
 
     plt.xlabel('Predicción')
     plt.ylabel('Real')
     plt.tight_layout()
     plt.show()
 
-# Imprimir la metricas
+# Imprimir las metricas
 def mostrar_metricas(y_true, y_pred):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     especificidad = tn / (tn + fp)
@@ -199,7 +207,7 @@ def logistica(X_train, X_test, y_train, y_test, pesos=None):
     mostrar_metricas(y_test, y_pred_log)
 
     # Graficar matriz de confusión
-    grafica_confusion(cm, 'Regresión Logística', str(pesos))
+    grafica_confusion(cm, 'Regresión Logística', pesos=pesos)
 
     return y_pred_log
 
