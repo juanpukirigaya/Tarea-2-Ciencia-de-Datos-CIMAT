@@ -20,7 +20,7 @@ print(f"La base de datos esta conformada por {df.shape[1]} columnas y {df.shape[
 #Visualizacion de los tipos de datos
 print("\nVisualizacion de los datos\n",df.dtypes)
 # Ver si hay datos faltantes
-print("Numero de nan",df.isna().sum())
+print("\n--Numero de nan--\n",df.isna().sum())
 # Las columnas de tipo objecto son de categorias
 # Ver el numero y categorias de cada columna
 print("\n---------Columnas categoricas------\n")
@@ -50,6 +50,7 @@ df['marital'] = df['marital'].replace('unknown', moda_marital)
 # Comenzar a analizar y separar las variables catoricas
 #----------------------------------------------------
 # separar las variables de entrada X y de salida y
+print("\n--------- Analizar los datos ------\n")
 X = df.drop("y", axis=1)
 y = df["y"]
 print(f"Tamaño de  X: {X.shape}, Tamaño de y: {y.shape}")
@@ -57,7 +58,7 @@ print(f"Tamaño de  X: {X.shape}, Tamaño de y: {y.shape}")
 y = y.map({"yes": 1, "no": 0})
 # Por otra parte como X tiene variables categoricas vamos a tranformas a este tipo y volvera del tipo dummy
 X_cat = pd.get_dummies(X, drop_first=True)
-print(f"Shape X: {X_cat.shape}")
+print(f"Tamaño de  X: {X_cat.shape}")
 # Separar train/test
 X_train, X_test, y_train, y_test = train_test_split(
     X_cat, y, test_size=0.3, stratify=y, random_state=42)
@@ -111,7 +112,7 @@ modelos = {
     "LDA": LinearDiscriminantAnalysis(),
     "QDA": QuadraticDiscriminantAnalysis(reg_param=0.2), # Regular en caso de colinealidad
     f"k-NN (k={k})": KNeighborsClassifier(n_neighbors=k),
-    f"Regresión Logística (pesos={wei})": cla.LogisticRegression(class_weight=wei, max_iter=1000)
+    f"Regresión Logística (pesos={wei})": cla.LogisticRegression(solver="liblinear",class_weight=wei, max_iter=1000)
 }
 
 # Evaluación con accuracy

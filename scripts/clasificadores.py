@@ -195,7 +195,7 @@ def logistica(X_train, X_test, y_train, y_test, pesos=None):
     print(f"\n--------  Regresión Logística (pesos={pesos}) --------\n")
     
     # Entrenar
-    logreg = LogisticRegression(class_weight=pesos, max_iter=1000)
+    logreg = LogisticRegression(solver="liblinear",class_weight=pesos, max_iter=2000)
     logreg.fit(X_train, y_train)
 
     # Evaluar
