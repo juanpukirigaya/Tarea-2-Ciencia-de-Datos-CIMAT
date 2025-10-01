@@ -186,7 +186,7 @@ def k_NN(X_train, X_test, y_train, y_test,n_neighbors,matriz=True,imprimir=True)
     
     if imprimir:
         print(f"\n--------  k-NN (k-Nearest Neighbors) con {n_neighbors} vecinos) --------\n")    # Entrenar
-        print("Matriz de confusión (k-NN):\n", cm)
+        print(f"Matriz de confusión (k-NN) con {n_neighbors} vecinos:\n", cm)
         #Metricas
         mostrar_metricas(y_test, y_pred_knn)
     # Graficar matriz de confusion
