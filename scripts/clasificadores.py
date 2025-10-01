@@ -249,7 +249,7 @@ def obtener_metricas(y_true, y_pred):
         "AUC": roc_auc_score(y_true, y_pred)
     }
 
-def validar_modelos(modelos, X, y, scoring="accuracy", n_splits=5):
+def validar_modelos(modelos, X, y, scoring="accuracy", n_splits=5,imprimir=True):
     """
     Realiza validación cruzada con múltiples modelos y devuelve los resultados.
 
@@ -267,14 +267,19 @@ def validar_modelos(modelos, X, y, scoring="accuracy", n_splits=5):
     """
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     resultados = {}
-
-    print(f"\n=== Validación Cruzada ({n_splits}-fold, {scoring}) ===")
     for nombre, modelo in modelos.items():
         scores = cross_val_score(modelo, X, y, cv=cv, scoring=scoring)
         media = scores.mean()
         std = scores.std()
         resultados[nombre] = {"Media": media, "Desviación": std}
-        print(f"{nombre:20s}: {media:.3f} ± {std:.3f}")
+
+    # Solo imprimir si se solicita
+    if imprimir:
+        print(f"\n=== Validación Cruzada ({n_splits}-fold, {scoring}) ===")
+        for nombre in modelos.keys():
+            media = resultados[nombre]["Media"]
+            std = resultados[nombre]["Desviación"]
+            print(f"{nombre:20s}: {media:.3f} ± {std:.3f}")
 
     return pd.DataFrame(resultados).T
 
