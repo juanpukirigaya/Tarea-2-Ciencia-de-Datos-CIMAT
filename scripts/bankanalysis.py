@@ -1,174 +1,210 @@
-# Paqueterias
+# Paqueterías
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 
-# importar funciones de clasificadores
 import clasificadores as cla
-#---------------------------
-# Exploración de los datos
-#---------------------------
+
+
+def elegir_k(X, y, kmax=100, scoring="f1", cv=5, plot_title="Curva de error de kNN"):
+    """
+    Selecciona k maximizando la métrica 'scoring' (por defecto F1).
+    - Usa StratifiedKFold para evitar folds sin la clase positiva.
+    - Ajusta el k máximo para que no exceda el tamaño del fold de entrenamiento.
+    - Grafica la curva métrica vs k (impares).
+    """
+    # Asegurar formato compatible
+    if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
+        X_arr = X.values
+    else:
+        X_arr = X
+    y_arr = pd.Series(y).values  # garantiza vector 1D y binario si ya lo mapeaste a {0,1}
+
+    # CV estratificada (o respeta si ya pasaste un objeto CV)
+    cv_obj = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42) if isinstance(cv, int) else cv
+
+    # Calcula splits una vez (también nos da el tamaño mínimo de train por fold)
+    splits = list(cv_obj.split(X_arr, y_arr))
+    n_train_min = min(len(tr) for tr, _ in splits)
+
+    # Cota superior segura para k (al menos 1, y menor que el tamaño del set de entrenamiento del fold más chico)
+    k_upper = max(1, min(kmax, n_train_min - 1))
+
+    # Probamos k impares (si quedara vacío por alguna razón, caemos a [1])
+    k_range = [k for k in range(1, k_upper + 1) if k % 2 == 1] or [1]
+
+    scores = []
+    for k in k_range:
+        knn = KNeighborsClassifier(n_neighbors=k)
+        # Reutilizamos 'splits' para que la estratificación y los tamaños sean consistentes
+        cv_scores = cross_val_score(
+            knn, X_arr, y_arr, cv=splits, scoring=scoring, n_jobs=-1, error_score="raise"
+        )
+        scores.append(cv_scores.mean())
+
+    best_idx = int(np.argmax(scores))
+    best_k = k_range[best_idx]
+
+    # Curva
+    plt.figure()
+    plt.plot(k_range, scores)
+    plt.xlabel("k")
+    plt.ylabel(f"{scoring.upper()} promedio (CV={cv_obj.get_n_splits() if hasattr(cv_obj,'get_n_splits') else 'custom'})")
+    plt.title(f"{plot_title} (mejor k={best_k})")
+    plt.tight_layout()
+    plt.show()
+
+    return best_k
+
+
+# ==========================
+# 1) Lectura + imputación
+# ==========================
 print("\n---------Exploración de los datos------\n")
-#Leer los datos, en este caso se lee de la carpeta si se va a leer directamente del link como dijo Antonio cambiar la siguiente linea
-df = pd.read_csv('bank-additional-full.csv', sep=";",encoding='latin-1',na_values=['NA','NA ', 'NaN', 'null', ''])
+df = pd.read_csv("bank-additional-full.csv", sep=";", encoding="latin-1",
+                 na_values=["NA", "NA ", "NaN", "null", ""])
 
 print(df.head())
-# Dimension de la base
-print(f"La base de datos esta conformada por {df.shape[1]} columnas y {df.shape[0]} filas")
-#Visualizacion de los tipos de datos
-print("\nVisualizacion de los datos\n",df.dtypes)
-# Ver si hay datos faltantes
-print("\n--Numero de nan--\n",df.isna().sum())
-# Las columnas de tipo objecto son de categorias
-# Ver el numero y categorias de cada columna
-print("\n---------Columnas categoricas------\n")
-cols_categoricas = ['job', 'marital', 'education','default','housing','loan','contact','month','day_of_week','poutcome']
-for col in cols_categoricas:
-    categorias = df[col].unique()        # Obtiene categorías únicas de la columna
-    num_categorias = len(categorias)    # Cuenta cuántas categorías únicas hay
-    print(f"\nCategorías en '{col}' ({num_categorias}):")
-    print(categorias)
+print(f"La base de datos tiene {df.shape[1]} columnas y {df.shape[0]} filas")
+print("\nTipos:\n", df.dtypes)
+print("\nNulos:\n", df.isna().sum())
 
-# Numero y porcentaje de unknowns
+cols_categoricas = ['job','marital','education','default','housing','loan','contact','month','day_of_week','poutcome']
 print("\n---------unknowns------\n")
-for colum in cols_categoricas:
-    total = df.shape[0]
-    tam = len(df[df[colum] != "unknown"])
-    missing = total - tam
-    porcentaje = (missing / total) * 100
-    print(f"La columna {colum} tiene {missing} unknown ({porcentaje:.2f}%)")
+for col in cols_categoricas:
+    total = len(df)
+    missing = (df[col] == "unknown").sum()
+    print(f"{col:12s}: {missing} unknown ({missing/total*100:.2f}%)")
 
-# Imputar con moda
-moda_job = df[df['job'] != 'unknown']['job'].mode()[0]
-df['job'] = df['job'].replace('unknown', moda_job)
-moda_marital = df[df['marital'] != 'unknown']['marital'].mode()[0]
-df['marital'] = df['marital'].replace('unknown', moda_marital)
+# Imputación simple por moda (puedes extenderla al resto si quieres)
+for col in ['job', 'marital']:
+    moda = df.loc[df[col] != 'unknown', col].mode()[0]
+    df[col] = df[col].replace('unknown', moda)
 
-#-----------------------------------------------------
-# Comenzar a analizar y separar las variables catoricas
-#----------------------------------------------------
-# separar las variables de entrada X y de salida y
-print("\n--------- Analizar los datos ------\n")
-X = df.drop("y", axis=1)
-y = df["y"]
-print(f"Tamaño de  X: {X.shape}, Tamaño de y: {y.shape}")
-# y es una variable binaria cambiar "yes=1" y "no=0"
-y = y.map({"yes": 1, "no": 0})
-# Por otra parte como X tiene variables categoricas vamos a transformar a este tipo y volvera del tipo dummy
-X_cat = pd.get_dummies(X, drop_first=True)
-print(f"Tamaño de  X: {X_cat.shape}")
-# Separar train/test
+# ==========================
+# 2) Dummies + split
+# ==========================
+X = df.drop(columns=["y"])
+y = df["y"].map({"yes": 1, "no": 0})
+
+X = pd.get_dummies(X, drop_first=True)
 X_train, X_test, y_train, y_test = train_test_split(
-    X_cat, y, test_size=0.3, stratify=y, random_state=42)
-print("Tamaño entrenamiento:", X_train.shape)
-print("Tamaño prueba:", X_test.shape)
-print(f"Las personas que al final si hicieron el deposito a largo plazo fue {sum(y)}")
-# Convertir a arrays de numpy para que k-NN lo soporte
-X_train = np.array(X_train)
-X_test = np.array(X_test)
-y_train = np.array(y_train)
-y_test = np.array(y_test)
+    X, y, test_size=0.30, stratify=y, random_state=42
+)
+print("Tamaño entrenamiento:", X_train.shape, " | prueba:", X_test.shape)
+print(f"Positivos totales (yes): {y.sum()}")
 
-## Trabajo con datos desbalanceados
+# ==========================
+# (A) Cinco clasificadores con imputación
+# ==========================
+best_k = elegir_k(X_train, y_train, kmax=100, scoring="f1", cv=5,
+                  plot_title="Curva de error de kNN (datos imputados)")
 
-k_range = range(1, min(100,int(np.sqrt(X.shape)[0])), 2)  # Valores impares de k para evitar empates
-scores = []
+best_k = 41
 
-for k in k_range:
-    knn = KNeighborsClassifier(n_neighbors=k)
-    cv_scores = cross_val_score(knn, X_train, y_train, cv=5, scoring="f1")
-    print(k)
-    scores.append(cv_scores.mean())
+y_lda, auc_lda = cla.LDA(X_train, X_test, y_train, y_test)
+y_qda, auc_qda = cla.QDA(X_train, X_test, y_train, y_test, reg_param=0.1)
+y_nb,  auc_nb  = cla.naiveBayes(X_train, X_test, y_train, y_test)
+y_knn, auc_knn = cla.k_NN(X_train, X_test, y_train, y_test, n_neighbors=best_k)
+y_lr,  auc_lr  = cla.logistica(X_train, X_test, y_train, y_test, pesos=None)
 
-best_k = k_range[np.argmax(scores)]
-print("Mejor k:", best_k)
-
-plt.plot(k_range, scores, color='darkgreen')
-plt.xlabel("k")
-plt.ylabel("F1 promedio CV")
-plt.title("Curva de error de kNN")
-plt.show()
-
-wei = None
-
-# Realizar pruebas
-y_lda=cla.LDA(X_train, X_test, y_train, y_test)
-y_qda=cla.QDA(X_train, X_test, y_train, y_test)
-# Al correrlo marca una advertencia esto puede ocurrir por colinealidad
-y_qda=cla.QDA(X_train, X_test, y_train, y_test,0.1) # Caso regularizado
-y_nb=cla.naiveBayes(X_train, X_test, y_train, y_test)
-y_knn=cla.k_NN(X_train, X_test, y_train, y_test,best_k)
-y_lr=cla.logistica(X_train, X_test, y_train, y_test, pesos=wei)
-#Mas valores de k
-# n=[1,3,5,7,11]
-# for i in n:
-#     y_knn=cla.k_NN(X_train, X_test, y_train, y_test,i)
-#=====================================
-# Comparación de todos los modelos
-#====================================
-# Diccionario para guardar los resultados
-results = {
-    "Naive Bayes": cla.obtener_metricas(y_test, y_nb),
-    "LDA": cla.obtener_metricas(y_test, y_lda),
-    "QDA": cla.obtener_metricas(y_test, y_qda),
-    f"k-NN (k={best_k})": cla.obtener_metricas(y_test, y_knn),
-    f"Regresión Logística (pesos={wei})": cla.obtener_metricas(y_test, y_lr)
+results_A = {
+    "Naive Bayes":             cla.obtener_metricas(y_test, y_nb,  auc_nb),
+    "LDA":                     cla.obtener_metricas(y_test, y_lda, auc_lda),
+    "QDA (reg=0.1)":           cla.obtener_metricas(y_test, y_qda, auc_qda),
+    f"k-NN (k={best_k})":      cla.obtener_metricas(y_test, y_knn, auc_knn),
+    "Regresión Logística":     cla.obtener_metricas(y_test, y_lr,  auc_lr),
 }
+df_A = pd.DataFrame(results_A).T
+print("\n=== (A) Comparación cinco clasificadores (imputados) ===")
+print(df_A.round(3))
 
-# Convertir a DataFrame para visualizar
-df_results = pd.DataFrame(results).T
-print("\n=== Comparación Final de Modelos ===")
-print(df_results.round(3))
-#=====================================
-# Validación cruzada comparativa
-#====================================
-modelos = {
+# Validación cruzada comparativa (puedes cambiar scoring a 'f1')
+modelos_A = {
     "Naive Bayes": GaussianNB(),
     "LDA": LinearDiscriminantAnalysis(),
-    "QDA": QuadraticDiscriminantAnalysis(reg_param=0.2), # Regular en caso de colinealidad
+    "QDA (reg=0.1)": QuadraticDiscriminantAnalysis(reg_param=0.1),
     f"k-NN (k={best_k})": KNeighborsClassifier(n_neighbors=best_k),
-    f"Regresión Logística (pesos={wei})": cla.LogisticRegression(solver="liblinear",class_weight=wei, max_iter=1000)
+    "Regresión Logística": LogisticRegression(solver="liblinear", max_iter=1000)
+}
+_ = cla.validar_modelos(modelos_A, X.values, y.values, scoring="accuracy", n_splits=5)
+
+
+# ==========================
+# (B) Logística pesada con imputación
+# ==========================
+y_lr_bal, auc_lr_bal = cla.logistica(X_train, X_test, y_train, y_test, pesos="balanced")
+results_B = {
+    "Regresión Logística (balanced)": cla.obtener_metricas(y_test, y_lr_bal, auc_lr_bal)
+}
+df_B = pd.DataFrame(results_B).T
+print("\n=== (B) Logística pesada (imputados) ===")
+print(df_B.round(3))
+
+modelos_B = {"Regresión Logística (balanced)": LogisticRegression(solver="liblinear", class_weight="balanced", max_iter=1000)}
+_ = cla.validar_modelos(modelos_B, X.values, y.values, scoring="accuracy", n_splits=5)
+
+
+# ==========================
+# (C) Submuestreo 2:1 + cinco clasificadores + logística pesada
+# ==========================
+random_seed = 810
+target_ratio = 2  # mayoritaria : minoritaria = 2 : 1
+
+# Mantén pandas para indexado
+y_train_ser = y_train.copy()
+X_train_df  = X_train.copy()
+
+print("\nConteos originales (train):")
+print(y_train_ser.value_counts())
+
+mask_min = (y_train_ser == 1)
+X_min, y_min = X_train_df[mask_min], y_train_ser[mask_min]
+X_maj, y_maj = X_train_df[~mask_min], y_train_ser[~mask_min]
+
+n_min, n_maj = len(y_min), len(y_maj)
+n_maj_target = min(int(target_ratio * n_min), n_maj)
+
+print(f"Minoritaria (yes): {n_min} | Mayoritaria original (no): {n_maj} | Objetivo mayoritaria: {n_maj_target}")
+
+X_maj_down = X_maj.sample(n=n_maj_target, random_state=random_seed)
+y_maj_down = y_maj.loc[X_maj_down.index]
+
+X_train_res = pd.concat([X_min, X_maj_down], axis=0)
+y_train_res = pd.concat([y_min, y_maj_down], axis=0)
+
+X_train_res = X_train_res.sample(frac=1.0, random_state=random_seed)  # shuffle
+y_train_res = y_train_res.loc[X_train_res.index]
+
+print("\nConteos tras submuestreo:")
+print(y_train_res.value_counts())
+
+best_k_res = elegir_k(X_train_res, y_train_res, kmax=100, scoring="f1", cv=5,
+                      plot_title="Curva de error de kNN (submuestreo 2:1)")
+
+y_nb_c,  auc_nb_c  = cla.naiveBayes(X_train_res, X_test, y_train_res, y_test)
+y_lda_c, auc_lda_c = cla.LDA(X_train_res, X_test, y_train_res, y_test)
+y_qda_c, auc_qda_c = cla.QDA(X_train_res, X_test, y_train_res, y_test, reg_param=0.1)
+y_knn_c, auc_knn_c = cla.k_NN(X_train_res, X_test, y_train_res, y_test, n_neighbors=best_k_res)
+y_lr_c,  auc_lr_c  = cla.logistica(X_train_res, X_test, y_train_res, y_test, pesos=None)
+y_lr_bal_c, auc_lr_bal_c = cla.logistica(X_train_res, X_test, y_train_res, y_test, pesos="balanced")
+
+results_C = {
+    "Naive Bayes (2:1)":            cla.obtener_metricas(y_test, y_nb_c,  auc_nb_c),
+    "LDA (2:1)":                    cla.obtener_metricas(y_test, y_lda_c, auc_lda_c),
+    "QDA reg=0.1 (2:1)":            cla.obtener_metricas(y_test, y_qda_c, auc_qda_c),
+    f"k-NN k={best_k_res} (2:1)":   cla.obtener_metricas(y_test, y_knn_c, auc_knn_c),
+    "Logística (2:1)":              cla.obtener_metricas(y_test, y_lr_c,  auc_lr_c),
+    "Logística balanced (2:1)":     cla.obtener_metricas(y_test, y_lr_bal_c, auc_lr_bal_c),
 }
 
-# Evaluación con accuracy
-X_np = np.array(X_cat, dtype=np.float64)
-y_np = np.array(y)
-df_cv_acc = cla.validar_modelos(modelos, X_np, y_np)
-
-
-## Trabajo con datos balanceados
-
-### Regresión logística pesada
-
-wei2 = "balanced"
-
-y_lrpon=cla.logistica(X_train, X_test, y_train, y_test, pesos=wei2)
-
-resultspon1 = {
-    f"Regresión Logística (pesos={wei2})": cla.obtener_metricas(y_test, y_lrpon)
-}
-
-# Convertir a DataFrame para visualizar
-df_resultspon1 = pd.DataFrame(resultspon1).T
-print("\n=== Regresión Logística balanceada ===")
-print(df_resultspon1.round(3))
-#=====================================
-# Validación cruzada comparativa
-#====================================
-modelospon1 = {
-    f"Regresión Logística (pesos={wei2})": cla.LogisticRegression(solver="liblinear",class_weight=wei2, max_iter=1000)
-}
-
-# Evaluación con accuracy
-X_np = np.array(X_cat, dtype=np.float64)
-y_np = np.array(y)
-df_cv_accpon1 = cla.validar_modelos(modelospon1, X_np, y_np)
-
-### Submuestreo y los métodos usuales
-
-
+df_C = pd.DataFrame(results_C).T
+print("\n=== (C) Comparación con submuestreo 2:1 ===")
+print(df_C.round(3))
