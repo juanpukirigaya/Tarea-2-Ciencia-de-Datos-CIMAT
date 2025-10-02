@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 def plot_decision_boundary(model, X, y, title,tamano,k=0):
     # Crear nueva figura cada vez
@@ -427,3 +429,76 @@ def graficar_brechas_vs_bayes(df_resultados, escenario=""):
     plt.axhline(y=0, color='red', linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.show()
+
+def _fit_predict(modelo, Xtr, ytr, Xte):
+    m = modelo.__class__(**getattr(modelo, "get_params", lambda: {})())
+    m.fit(Xtr, ytr)
+    return m.predict(Xte)
+
+def bootstrap_riesgo(X, y, modelos: dict, B=200, metodo=".632+", seed=None):
+    """
+    Devuelve un dict con riesgo bootstrap por modelo (claves como en 'modelos').
+    metodo: ".632" o ".632+"
+    """
+    rng = np.random.default_rng(seed)
+    n = len(y)
+    riesgos = {name: [] for name in modelos.keys()}
+    gamma = {name: [] for name in modelos.keys()}  # tasa de error 'no-informativa' (para .632+)
+
+    idx = np.arange(n)
+    for b in range(B):
+        # Muestra bootstrap con reemplazo
+        train_idx = rng.choice(idx, size=n, replace=True)
+        oob_mask = np.ones(n, dtype=bool)
+        oob_mask[train_idx] = False
+        test_idx = idx[oob_mask]
+        if test_idx.size == 0:
+            # raro pero puede pasar, salta esta réplica
+            continue
+
+        Xtr, ytr = X[train_idx], y[train_idx]
+        Xte, yte = X[test_idx], y[test_idx]
+
+        for name, modelo in modelos.items():
+            yhat = _fit_predict(modelo, Xtr, ytr, Xte)
+            # Riesgo 0-1 = 1 - accuracy
+            L = 1.0 - accuracy_score(yte, yhat)
+            riesgos[name].append(L)
+
+            # Para .632+ necesitamos gamma (error 'no-informativo'):
+            # proporción de la clase mayoritaria en el fold OOB (clasi constante)
+            p1 = np.mean(yte)
+            gamma[name].append(1.0 - max(p1, 1 - p1))
+
+    out = {}
+    for name in modelos.keys():
+        L_oob = np.mean(riesgos[name]) if len(riesgos[name]) else np.nan
+
+        if metodo == ".632":
+            # Combina 0.368 * err_app + 0.632 * err_oob (usamos err_app por holdout simple)
+            # Para no tocar tus pipelines, usamos una única app-error rápido:
+            # un train/test split fijo con la misma semilla.
+            Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3,
+                                                  stratify=y, random_state=seed)
+            yhat_app = _fit_predict(modelos[name], Xtr, ytr, Xte)
+            L_app = 1.0 - accuracy_score(yte, yhat_app)
+            out[name] = 0.368 * L_app + 0.632 * L_oob
+
+        elif metodo == ".632+":
+            Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3,
+                                                  stratify=y, random_state=seed)
+            yhat_app = _fit_predict(modelos[name], Xtr, ytr, Xte)
+            L_app = 1.0 - accuracy_score(yte, yhat_app)
+
+            g = np.mean(gamma[name]) if len(gamma[name]) else np.nan
+            if np.isnan(L_oob) or np.isnan(g) or g <= L_app:
+                out[name] = L_oob  # fallback razonable
+            else:
+                R = (L_oob - L_app) / (g - L_app)
+                w = 0.632 / (1 - 0.368 * R)
+                w = np.clip(w, 0, 1)
+                out[name] = (1 - w) * L_app + w * L_oob
+        else:
+            out[name] = L_oob
+
+    return out
