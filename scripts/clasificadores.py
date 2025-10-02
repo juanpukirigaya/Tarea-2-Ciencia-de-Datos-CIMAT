@@ -63,7 +63,7 @@ def mostrar_metricas(y_true, y_pred, auc=None):
     print("F1-score (weighted):", f1_score(y_true, y_pred, average='weighted', zero_division=0))
     print("AUC:" if auc is not None else "AUC: N/A (requiere probabilidades)", auc if auc is not None else "")
 
-def obtener_metricas(y_true, y_pred):
+def obtener_metricas(y_true, y_pred, auc=None):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     especificidad = tn / (tn + fp) if (tn + fp) > 0 else np.nan
     # Mantengo AUC sólo si alguien ya lo calcula afuera con probas; aquí lo dejamos N/A.
@@ -73,7 +73,7 @@ def obtener_metricas(y_true, y_pred):
         "Recall": recall_score(y_true, y_pred, average='weighted', zero_division=0),
         "Especificidad": especificidad,
         "F1": f1_score(y_true, y_pred, average='weighted', zero_division=0),
-        "AUC": np.nan
+        "AUC": auc if auc is not None else np.nan
     }
 
 
@@ -90,7 +90,7 @@ def naiveBayes(X_train, X_test, y_train, y_test, matriz=True, imprimir=True):
         mostrar_metricas(y_test, y_pred, auc)
     if matriz:
         grafica_confusion(cm, 'Naive Bayes')
-    return y_pred
+    return y_pred, auc
 
 def LDA(X_train, X_test, y_train, y_test, matriz=True, imprimir=True):
     lda = LinearDiscriminantAnalysis().fit(X_train, y_train)
@@ -104,7 +104,7 @@ def LDA(X_train, X_test, y_train, y_test, matriz=True, imprimir=True):
         mostrar_metricas(y_test, y_pred, auc)
     if matriz:
         grafica_confusion(cm, 'LDA')
-    return y_pred
+    return y_pred, auc
 
 def QDA(X_train, X_test, y_train, y_test, reg_param=0.0, matriz=True, imprimir=True):
     qda = QuadraticDiscriminantAnalysis(reg_param=reg_param).fit(X_train, y_train)
@@ -118,7 +118,7 @@ def QDA(X_train, X_test, y_train, y_test, reg_param=0.0, matriz=True, imprimir=T
         mostrar_metricas(y_test, y_pred, auc)
     if matriz:
         grafica_confusion(cm, 'QDA')
-    return y_pred
+    return y_pred, auc
 
 def k_NN(X_train, X_test, y_train, y_test, n_neighbors, matriz=True, imprimir=True):
     # ← NEW: garantizar formato compatible con backend de sklearn
@@ -138,7 +138,7 @@ def k_NN(X_train, X_test, y_train, y_test, n_neighbors, matriz=True, imprimir=Tr
         mostrar_metricas(y_test, y_pred, auc)
     if matriz:
         grafica_confusion(cm, 'k-NN', n_neighbors=n_neighbors)
-    return y_pred
+    return y_pred, auc
 
 def logistica(X_train, X_test, y_train, y_test, pesos=None, matriz=True, imprimir=True):
     logreg = LogisticRegression(solver="liblinear", class_weight=pesos, max_iter=2000).fit(X_train, y_train)
@@ -152,7 +152,7 @@ def logistica(X_train, X_test, y_train, y_test, pesos=None, matriz=True, imprimi
         mostrar_metricas(y_test, y_pred, auc)
     if matriz:
         grafica_confusion(cm, 'Regresión Logística', pesos=pesos)
-    return y_pred
+    return y_pred, auc
 
 
 # ====== Validación cruzada multip modelos ======
