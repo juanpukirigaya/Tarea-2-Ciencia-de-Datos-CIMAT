@@ -143,7 +143,7 @@ def metricas_nk (mu0,mu1,Sigma0,Sigma1,n_list,k_list,pi0=0.5,pi1=0.5,reg_param=0
         print("=== Comparación de métricas ===")
         print(df_res)
         
-def riesgo_verdadero_bayes(mu0, mu1, Sigma0, Sigma1,  pi0=0.5, pi1=0.5,n=50000, n_remuestreos=100):
+def riesgo_verdadero_bayes(mu0, mu1, Sigma0, Sigma1,  pi0=0.5, pi1=0.5,n=30000, n_remuestreos=80):
     """
     Calcula el riesgo verdadero del clasificador de Bayes con múltiples remuestreos.
     
@@ -297,6 +297,20 @@ def riesgo_vs_n_con_replicas(mu0, mu1, Sigma0, Sigma1, pi0=0.5, pi1=0.5,
     
     return pd.DataFrame(resultados)
 
+def agrupar_por_n_y_modelo(df_detallado):
+    """
+    Función auxiliar para agrupar resultados por n y modelo
+    MANTIENE las mismas columnas originales con valores promediados
+    """
+    # Agrupar y calcular promedios manteniendo estructura original
+    agrupado = df_detallado.groupby(['n', 'modelo']).agg({
+        'riesgo_medio': 'mean',      # Promedio del riesgo medio entre réplicas
+        'riesgo_std': 'mean',        # Promedio de la std interna
+        'brecha_vs_bayes': 'mean'    # Promedio de la brecha
+    }).round(4).reset_index()
+    
+    return agrupado
+
 def graficar_riesgo(resultados):
     """
     Grafica solo los errores (riesgos) para cada modelo vs tamaño de muestra.
@@ -413,7 +427,3 @@ def graficar_brechas_vs_bayes(df_resultados, escenario=""):
     plt.axhline(y=0, color='red', linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.show()
-
-
-
-
